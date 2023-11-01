@@ -18,6 +18,8 @@ Used https://chrome.google.com/webstore/detail/contact-download-for-what/gbbpfmm
 TODO Add myself manually since downloaded contacts doesn't include person logged into Whatsapp?
 Manually removed group name from exported Whatsapp to ease merging of Main and Quiet groups
 2023-03-04 Also manually sort Whatsapp contact list
+2023-07-02 Stopped redownloading contacts from Whatsapp
+In mac, to generate tables in pdf. First open csv doc in Numbers then print to pdf
 """
 
 
@@ -55,6 +57,13 @@ def main(args):
     len_whatsapp_contacts = len(whatsapp_contacts)
     ic(whatsapp_contacts)
 
+    lines = []
+    try:
+        with open(os.path.join(os.path.dirname(__file__), "excluded_numbers.txt"), "r") as ef:
+            doc = ef.read()
+        lines = doc.split("\n")
+    except FileNotFoundError:
+        print("No excluded numbers")
     for index, row in enumerate(whatsapp_contacts):
         if args.subset and index < len_whatsapp_contacts - 15:
             continue
@@ -65,9 +74,6 @@ def main(args):
         name = re.sub('ExMay ', "", name, flags=re.IGNORECASE)
         name = re.sub(' (C|M)$', "", name)
         phone = row[1]
-        with open(os.path.join(os.path.dirname(__file__), "excluded_numbers.txt"), "r") as ef:
-            doc = ef.read()
-        lines = doc.split("\n")
         ignore_list = {line.split(",")[1] for line in lines if line.strip() != ""}
         if phone in ignore_list:
             continue
@@ -92,19 +98,25 @@ def main(args):
     # random.shuffle(
     #     final_contacts, lambda: 0.5
     # )  # Temporary. This has been removed from latest python stdlib as not accurate
-    random.Random("2023-03-04").shuffle(final_contacts)
+    random.Random("2023-10-01").shuffle(final_contacts)
     len_final_contacts = len(final_contacts)
     ic(len_final_contacts)
     args.debug and ic(final_contacts)
     i = 0
     j = 1
+    print("No;A;B")
     while i < len_final_contacts:
         args.debug and ic(i)
         if i == len_final_contacts - 1:
-            print(f"{j} {final_contacts[i]} ALSO is paired with {final_contacts[0]}!")
+            print(f"{j};\"{final_contacts[i]}\";\"Also with {final_contacts[0]}!\"")
         else:
-            print(f"{j} {final_contacts[i]} is paired with {final_contacts[i + 1]}")
-            print()
+            print(f"{j};\"{final_contacts[i]}\";\"{final_contacts[i + 1]}\"")
+
+        # if i == len_final_contacts - 1:
+        #     print(f"{j} {final_contacts[i]} ALSO is paired with {final_contacts[0]}!")
+        # else:
+        #     print(f"{j} {final_contacts[i]} is paired with {final_contacts[i + 1]}")
+        #     print()
         i += 2
         j += 1
     print("No names")
