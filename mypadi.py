@@ -14,30 +14,28 @@ from random import Random
 Requirements: pip install icecream snoop
 Requirements: brew install harelba/q/q
 Uses https://harelba.github.io/q/#installation to query sql files
-Used https://chrome.google.com/webstore/detail/contact-download-for-what/gbbpfmmjcaakdmhlnjfdlhlehoeikbic to download Whatsapp contacts from Whatsapp Web in Chrome
+2023-03-06 Used https://chrome.google.com/webstore/detail/contact-download-for-what/gbbpfmmjcaakdmhlnjfdlhlehoeikbic to download Whatsapp contacts from Whatsapp Web in Chrome
+2025-02-10 Used https://chromewebstore.google.com/detail/wappmaster-contacts-extra/moeihekkmkijlgmmablmbkjeojmkaagh?hl=en to download Whatsapp contacts from Whatsapp Web in Chrome but it doesn't usually give results for unsaved contacts
 TODO Add myself manually since downloaded contacts doesn't include person logged into Whatsapp?
 Manually removed group name from exported Whatsapp to ease merging of Main and Quiet groups
 2023-03-04 Also manually sort Whatsapp contact list
 2023-07-02 Stopped redownloading contacts from Whatsapp
+2025-02-10 Resumed redownloading contacts from Whatsapp
 In mac, to generate tables in pdf. First open csv doc in Numbers then print to pdf
 """
 
 
-def sample_function():
-    # 2023-02-01 0.5
-    return 0.5
-
-
 @snoop()
 def main(args):
-    with open(os.path.expanduser("~/Downloads/ExMay02/ExMay02Main/WhatsApp All Contacts.csv")) as f:
+    with open(os.path.join(os.path.dirname(__file__), 'docs.seg', 'ExMay-Whatsapp-Contacts.csv')) as f:
         main_whatsapp_contacts = f.read().splitlines()[1:]
     joint_whatsapp_contacts = list(main_whatsapp_contacts)
     ic(len(main_whatsapp_contacts))
-    with open(os.path.expanduser("~/Downloads/ExMay02/ExMay02Quiet/WhatsApp All Contacts.csv")) as f:
-        quiet_whatsapp_contacts = f.read().splitlines()[1:]
-    ic(len(quiet_whatsapp_contacts))
-    joint_whatsapp_contacts = sorted(set(joint_whatsapp_contacts + quiet_whatsapp_contacts))
+    # with open(os.path.expanduser("~/Downloads/ExMay02/ExMay02Quiet/WhatsApp All Contacts.csv")) as f:
+    #     quiet_whatsapp_contacts = f.read().splitlines()[1:]
+    # ic(len(quiet_whatsapp_contacts))
+    # joint_whatsapp_contacts = sorted(set(joint_whatsapp_contacts + quiet_whatsapp_contacts))
+    joint_whatsapp_contacts = sorted(set(joint_whatsapp_contacts))
     whatsapp_contacts_reader = csv.reader(
         joint_whatsapp_contacts,
         delimiter=',',
@@ -47,10 +45,18 @@ def main(args):
 
     # First run to cache db for speed
     phone = "08000"
-    command = f"q -H -d , \"select a.[Phone number], a.[Other Names], a.[Surname] from $HOME/Downloads/NumbersFromBallot.csv a where instr('{phone}', a.[Phone number]) > 0\" -C readwrite"
+    command = (
+        "q -H -d , \"select a.[Phone number], a.[Other Names], a.[Surname] from "
+        + f"{os.path.join(os.path.dirname(__file__), 'docs.seg', 'NumbersFromBallot.csv')}"
+        + " a where instr('{phone}', a.[Phone number]) > 0\" -C readwrite"
+    )
     output = subprocess.check_output(command, shell=True).decode("utf-8")
     print(output)
-    command = f"q -H -d , \"select a.[Phone number], a.[Phone number 2], a.[First Name], a.[Maiden Name], a.[Surname] from $HOME/Downloads/ExMay02/Ex-Mays2002OnlineDatabase-Sheet1.csv a where instr('{phone}', substr(a.[Phone number], length(a.[Phone number]) - 9)) > 0 or instr('{phone}', substr(a.[Phone number 2], length(a.[Phone number 2]) - 9)) > 0\" -C readwrite"
+    command = (
+        "q -H -d , \"select a.[Phone number], a.[Phone number 2], a.[First Name], a.[Maiden Name], a.[Surname] from "
+        + os.path.join(os.path.dirname(__file__), 'docs.seg', 'ExMay02', 'Ex-Mays2002OnlineDatabase-Sheet1.csv')
+        + " a where instr('{phone}', substr(a.[Phone number], length(a.[Phone number]) - 9)) > 0 or instr('{phone}', substr(a.[Phone number 2], length(a.[Phone number 2]) - 9)) > 0\" -C readwrite"
+    )
     output = subprocess.check_output(command, shell=True).decode("utf-8")
     print(output)
     whatsapp_contacts = list(whatsapp_contacts_reader)
@@ -67,24 +73,33 @@ def main(args):
     for index, row in enumerate(whatsapp_contacts):
         if args.subset and index < len_whatsapp_contacts - 15:
             continue
-        name = row[0]
+        name = row[1]
+        if row[1].strip() == "":
+            name = row[2]
         # name = name.replace(" ExMay", "")
         name = re.sub(' ExMay', "", name, flags=re.IGNORECASE)
         # name = name.replace("ExMay ", "")
         name = re.sub('ExMay ', "", name, flags=re.IGNORECASE)
         name = re.sub(' (C|M)$', "", name)
-        phone = row[1]
+        phone = row[0]
         ignore_list = {line.split(",")[1] for line in lines if line.strip() != ""}
         if phone in ignore_list:
+            print(f"Excluded {phone}")
             continue
         print(name, phone, end=" ")
-        command = f"q -H -d , \"select a.[Phone number], a.[Other Names], a.[Surname] from $HOME/Downloads/NumbersFromBallot.csv a where instr('{phone}', a.[Phone number]) > 0\" -C read"
+        command = (
+            "q -H -d , \"select a.[Phone number], a.[Other Names], a.[Surname] from "
+            + f"{os.path.join(os.path.dirname(__file__), 'docs.seg', 'NumbersFromBallot.csv')}"
+            + " a where instr('{phone}', a.[Phone number]) > 0\" -C read"
+        )
         output = subprocess.check_output(command, shell=True).decode("utf-8").strip()
         print(output)
         contact = f"{name} {phone} {output}"
         if not re.search('[a-zA-Z]{2}', contact):
             command = (
-                f"q -H -d , \"select a.[Phone number], a.[Phone number 2], a.[First Name], a.[Maiden Name], a.[Surname] from $HOME/Downloads/ExMay02/Ex-Mays2002OnlineDatabase-Sheet1.csv a where (instr('{phone}', substr(a.[Phone number], length(a.[Phone number]) - 9)) > 0 and a.[Phone number] <> ''"
+                "q -H -d , \"select a.[Phone number], a.[Phone number 2], a.[First Name], a.[Maiden Name], a.[Surname] from "
+                + f"{os.path.join(os.path.dirname(__file__), 'docs.seg', 'ExMay02','Ex-Mays2002OnlineDatabase-Sheet1.csv')}"
+                + " a where (instr('{phone}', substr(a.[Phone number], length(a.[Phone number]) - 9)) > 0 and a.[Phone number] <> ''"
                 ") or (instr('{phone}', substr(a.[Phone number 2], length(a.[Phone number 2]) - 9)) > 0 and a.[Phone number 2] <> '') or (instr('{phone}', substr(a.[WhatsApp No], length(a.[WhatsApp No]) - 9)) > 0 and a.[WhatsApp No] <> '' and a.[WhatsApp No] <> '∞'"  # To fix. ∞ seems to be causing query to fail
                 ")\" -C read"
             )
@@ -98,7 +113,7 @@ def main(args):
     # random.shuffle(
     #     final_contacts, lambda: 0.5
     # )  # Temporary. This has been removed from latest python stdlib as not accurate
-    random.Random("2023-10-01").shuffle(final_contacts)
+    random.Random("2025-02-11").shuffle(final_contacts)
     len_final_contacts = len(final_contacts)
     ic(len_final_contacts)
     args.debug and ic(final_contacts)
@@ -108,18 +123,13 @@ def main(args):
     while i < len_final_contacts:
         args.debug and ic(i)
         if i == len_final_contacts - 1:
-            print(f"{j};\"{final_contacts[i]}\";\"Also with {final_contacts[0]}!\"")
+            print(f"{j};\"{final_contacts[i]}\";\"ALSO with {final_contacts[0]}!\"")
         else:
             print(f"{j};\"{final_contacts[i]}\";\"{final_contacts[i + 1]}\"")
-
-        # if i == len_final_contacts - 1:
-        #     print(f"{j} {final_contacts[i]} ALSO is paired with {final_contacts[0]}!")
-        # else:
-        #     print(f"{j} {final_contacts[i]} is paired with {final_contacts[i + 1]}")
-        #     print()
         i += 2
         j += 1
-    print("No names")
+    print(f"{len(no_names)} contacts have no names")
+    # print("no names")
     for no_name in no_names:
         output = no_name
         no_name = no_name.replace(" +", ",+")
@@ -128,11 +138,11 @@ def main(args):
             if contact in no_name:
                 output += " main"
                 break
-        for contact in quiet_whatsapp_contacts:
-            args.debug and ic(contact, no_name)
-            if contact in no_name:
-                output += " quiet"
-                break
+        # for contact in quiet_whatsapp_contacts:
+        #     args.debug and ic(contact, no_name)
+        #     if contact in no_name:
+        #         output += " quiet"
+        #         break
         print(output)
 
 
